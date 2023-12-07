@@ -1,0 +1,16 @@
+### GET ALL CUSTOMER
+GET localhost:8080/api/v1/customer
+
+### GET CUSTOMER
+GET localhost:8080/api/v1/customer/12345
+
+### STORE CUSTOMER
+PUT localhost:8080/api/v1/customer
+Content-Type: application/json
+
+{
+  "name": "Carla Customer",
+  "age": "44",
+  "id": "d6452862-90a7-40e4-9bac-9c1a86df19d6"
+}
+
