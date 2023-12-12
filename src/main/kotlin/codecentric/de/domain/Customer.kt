@@ -1,5 +1,18 @@
 package codecentric.de.domain
 
+import codecentric.de.domain.CustomerDatabaseSingleton.dbQuery
+import kotlinx.coroutines.Dispatchers
+import org.jetbrains.exposed.sql.Database
+import org.jetbrains.exposed.sql.ResultRow
+import org.jetbrains.exposed.sql.SchemaUtils
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.sql.Table
+import org.jetbrains.exposed.sql.insert
+import org.jetbrains.exposed.sql.select
+import org.jetbrains.exposed.sql.selectAll
+import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransaction
+import org.jetbrains.exposed.sql.transactions.transaction
+
 @JvmInline
 value class Id(val value: String)
 
@@ -16,18 +29,56 @@ data class Customer(
 )
 
 interface CustomerRepository {
-    fun findAll(): List<Customer>
-    fun saveCustomer(customer: Customer)
-    fun findById(id: String): Customer?
+    suspend fun findAll(): List<Customer>
+    suspend fun saveCustomer(customer: Customer)
+    suspend fun findById(id: String): Customer?
 }
 
-class InMemoryCustomerStorage : CustomerRepository {
-    val customerStorage = hashMapOf<String, Customer>(
-        Pair("12345", Customer(Id("12345"), Name("Paula"), Age(30)))
+object Customers : Table() {
+    val id = varchar("id", 36)
+    val name = varchar("name", 255)
+    val age = long("age")
+
+    override val primaryKey = PrimaryKey(id)
+}
+
+object CustomerDatabaseSingleton {
+    fun init() {
+        val driverClassName = "org.h2.Driver"
+        val jdbcURL = "jdbc:h2:file:./build/db"
+        val database = Database.connect(jdbcURL, driverClassName)
+
+        transaction(database) {
+            SchemaUtils.create(Customers)
+        }
+
+    }
+
+    suspend fun <T> dbQuery(block: suspend () -> T): T = newSuspendedTransaction(Dispatchers.IO) { block() }
+}
+
+
+
+class DatabasseCustomerStorage : CustomerRepository {
+    private fun resultRowToCustomer(row: ResultRow) = Customer(
+        id = Id(row[Customers.id]),
+        name = Name(row[Customers.name]),
+        age = Age(row[Customers.age]),
     )
-    override fun findAll(): List<Customer> = customerStorage.values.toList()
 
-    override fun saveCustomer(customer: Customer) = customer.let { customerStorage[customer.id!!.value] = it }
+    override suspend fun findAll(): List<Customer> = dbQuery { Customers.selectAll().map(::resultRowToCustomer) }
 
-    override fun findById(id: String) = customerStorage[id]
+    override suspend fun saveCustomer(customer: Customer): Unit = dbQuery {
+        val insertStatement = Customers.insert {
+            it[id] = customer.id!!.value
+            it[name] = customer.name.value
+            it[age] = customer.age!!.value
+        }
+
+        insertStatement.resultedValues?.singleOrNull()
+    }
+
+    override suspend fun findById(id: String): Customer? =
+        dbQuery { Customers.select(Customers.id eq id).map(::resultRowToCustomer).singleOrNull() }
+
 }

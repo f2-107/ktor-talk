@@ -2,8 +2,9 @@ package codecentric.de
 
 import codecentric.de.app.web.configureRouting
 import codecentric.de.domain.API
+import codecentric.de.domain.CustomerDatabaseSingleton
 import codecentric.de.domain.CustomerRepository
-import codecentric.de.domain.InMemoryCustomerStorage
+import codecentric.de.domain.DatabasseCustomerStorage
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
@@ -20,7 +21,7 @@ fun main() {
 }
 
 val appModule = module {
-    single<CustomerRepository> { InMemoryCustomerStorage() }
+    single<CustomerRepository> { DatabasseCustomerStorage() }
     single { API(get()) }
 }
 
@@ -34,5 +35,7 @@ fun Application.module() {
         filter { call -> call.request.path().startsWith("/api/v1") }
     }
 
+
+    CustomerDatabaseSingleton.init()
     configureRouting(inject<API>().value)
 }
