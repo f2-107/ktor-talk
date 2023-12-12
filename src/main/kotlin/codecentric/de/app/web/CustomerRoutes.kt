@@ -8,6 +8,7 @@ import codecentric.de.domain.Name
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
+import io.ktor.server.auth.*
 import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
@@ -21,22 +22,25 @@ fun Application.configureRouting(api: API) {
     }
 
     routing {
-        route("/api/v1/customer") {
+        authenticate("basic-auth") {
+            route("/api/v1/customer") {
 
-            get {
-                call.respond(api.allCustomers().map { CustomerDTO.fromDomain(it) })
+                get {
+                    call.respond(api.allCustomers().map { CustomerDTO.fromDomain(it) })
+                }
+
+                get("/{id}") {
+                    call.respond(
+                        api.findCustomer(call.parameters["id"]!!)?.let { customer -> CustomerDTO.fromDomain(customer) }
+                            ?: HttpStatusCode.NotFound)
+                }
+
+                put {
+                    api.saveCustomer(call.receive<CustomerDTO>().toDomain())
+                    call.respond(HttpStatusCode.NoContent)
+                }
             }
 
-            get("/{id}") {
-                call.respond(
-                    api.findCustomer(call.parameters["id"]!!)?.let { customer -> CustomerDTO.fromDomain(customer) }
-                        ?: HttpStatusCode.NotFound)
-            }
-
-            put {
-                api.saveCustomer(call.receive<CustomerDTO>().toDomain())
-                call.respond(HttpStatusCode.NoContent)
-            }
         }
     }
 }

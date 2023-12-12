@@ -5,6 +5,7 @@ import codecentric.de.domain.API
 import codecentric.de.domain.CustomerRepository
 import codecentric.de.domain.InMemoryCustomerStorage
 import io.ktor.server.application.*
+import io.ktor.server.auth.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
 import io.ktor.server.plugins.callloging.*
@@ -28,6 +29,19 @@ fun Application.module() {
     install(Koin) {
         slf4jLogger()
         modules(appModule)
+    }
+
+    install(Authentication) {
+        basic("basic-auth") {
+            realm = "Protect base path"
+            validate { credentials ->
+                if (credentials.name == "user" && credentials.password == "pass") {
+                    UserIdPrincipal(credentials.name)
+                } else {
+                    null
+                }
+            }
+        }
     }
 
     install(CallLogging) {
